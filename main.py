@@ -85,6 +85,29 @@ def create_price_chart(prices, coin):
     plt.close()
     return buf
 
+def get_market_trends():
+    url = 'https://api.coingecko.com/api/v3/search/trending'
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return None
+
+def convert_crypto(amount, from_coin, to_coin):
+    url = f'https://api.coingecko.com/api/v3/simple/price?ids={from_coin},{to_coin}&vs_currencies=usd'
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        if from_coin in data and to_coin in data:
+            from_price = data[from_coin]['usd']
+            to_price = data[to_coin]['usd']
+            converted_amount = (amount * from_price) / to_price
+            return converted_amount
+        else:
+            return None
+    else:
+        return None
+
 @bot.tree.command(name="price", description="Get the price of a cryptocurrency")
 @app_commands.describe(coin="The cryptocurrency you want to check", currency="The currency to compare (default is USD)")
 async def price(interaction: discord.Interaction, coin: str, currency: str = 'usd'):
@@ -148,10 +171,39 @@ async def chart(interaction: discord.Interaction, coin: str):
     else:
         await interaction.followup.send('Error fetching data for the chart.')
 
+@bot.tree.command(name="trending", description="Get the current trending cryptocurrencies")
+async def trending(interaction: discord.Interaction):
+    await interaction.response.defer()
+    data = get_market_trends()
+    if data:
+        coins = data['coins']
+        embed = discord.Embed(title='Trending Cryptocurrencies', color=discord.Color.purple())
+        for coin in coins:
+            item = coin['item']
+            embed.add_field(name=item['name'], value=f"Symbol: {item['symbol']}\nMarket Cap Rank: {item['market_cap_rank']}", inline=False)
+        await interaction.followup.send(embed=embed)
+    else:
+        await interaction.followup.send('Error fetching trending cryptocurrencies.')
+
+@bot.tree.command(name="convert", description="Convert an amount from one cryptocurrency to another")
+@app_commands.describe(amount="The amount to convert", from_coin="The cryptocurrency to convert from", to_coin="The cryptocurrency to convert to")
+async def convert(interaction: discord.Interaction, amount: float, from_coin: str, to_coin: str):
+    await interaction.response.defer()
+    converted_amount = convert_crypto(amount, from_coin, to_coin)
+    if converted_amount:
+        embed = discord.Embed(title='Crypto Conversion', color=discord.Color.orange())
+        embed.add_field(name='From', value=f'{amount} {from_coin.upper()}', inline=False)
+        embed.add_field(name='To', value=f'{converted_amount:.6f} {to_coin.upper()}', inline=False)
+        await interaction.followup.send(embed=embed)
+    else:
+        await interaction.followup.send('Error converting cryptocurrencies.')
+
 # Auto-complete function for coin names
 @price.autocomplete('coin')
 @info.autocomplete('coin')
 @chart.autocomplete('coin')
+@convert.autocomplete('from_coin')
+@convert.autocomplete('to_coin')
 async def coin_autocomplete(interaction: discord.Interaction, current: str):
     return [
         app_commands.Choice(name=coin['name'], value=coin['id'])
