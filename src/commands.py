@@ -151,13 +151,18 @@ def setup_commands(bot: commands.Bot):
     @bot.tree.command(name="list_favorites", description="List your favorite cryptocurrencies")
     async def list_favorites(interaction: discord.Interaction):
         user_id = interaction.user.id
+        language = bot.user_languages[user_id]
+        
         if user_id in bot.favorites and bot.favorites[user_id]:
-            language = bot.user_languages[interaction.user.id]
             translated_message = get_translation('Your favorite cryptocurrencies', language)
-            favorites_list = "\n".join(bot.favorites[user_id])
-            await interaction.response.send_message(f'{translated_message}:\n{favorites_list}', ephemeral=True)
+            embed = discord.Embed(title=translated_message, color=discord.Color.blue())
+            favorites_list = "\n".join([coin.capitalize() for coin in bot.favorites[user_id]])
+            embed.add_field(name="Favorites", value=favorites_list, inline=False)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
-            await interaction.response.send_message('You have no favorite cryptocurrencies.', ephemeral=True)
+            translated_message = get_translation('You have no favorite cryptocurrencies.', language)
+            await interaction.response.send_message(translated_message, ephemeral=True)
+
 
     @bot.tree.command(name="daily_highlights", description="Get the top gainers and losers of the day")
     async def daily_highlights(interaction: discord.Interaction):
