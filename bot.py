@@ -1,12 +1,13 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 import requests
 import matplotlib.pyplot as plt
 import io
 import datetime
 import os
 from dotenv import load_dotenv
+from collections import defaultdict
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -19,9 +20,11 @@ class CryptoBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
         self.synced = False
         self.coins = []
+        self.price_alerts = defaultdict(list)
 
     async def setup_hook(self):
         await self.tree.sync()
+        self.update_market_data.start()
 
     async def on_ready(self):
         await self.sync_coins()
@@ -38,6 +41,28 @@ class CryptoBot(commands.Bot):
             self.coins = response.json()
         else:
             print("Failed to fetch coin list")
+
+    async def on_message(self, message):
+        if message.author == self.user:
+            return
+
+        if 'crypto' in message.content.lower():
+            await message.channel.send('Interested in cryptocurrencies? Use `/price` to get the latest prices!')
+
+        await self.process_commands(message)
+
+    @tasks.loop(minutes=10)
+    async def update_market_data(self):
+        for coin, alerts in self.price_alerts.items():
+            data = get_price_data(coin, 'usd')
+            if data and coin in data:
+                price = data[coin]['usd']
+                for alert in alerts:
+                    if (alert['type'] == 'above' and price > alert['price']) or (alert['type'] == 'below' and price < alert['price']):
+                        user = self.get_user(alert['user_id'])
+                        if user:
+                            await user.send(f'Price alert: {coin.capitalize()} is now {alert["type"]} ${alert["price"]}. Current price: ${price}')
+                            alerts.remove(alert)
 
 bot = CryptoBot()
 
@@ -198,12 +223,23 @@ async def convert(interaction: discord.Interaction, amount: float, from_coin: st
     else:
         await interaction.followup.send('Error converting cryptocurrencies.')
 
+@bot.tree.command(name="alert", description="Set a price alert for a cryptocurrency")
+@app_commands.describe(coin="The cryptocurrency you want to set an alert for", price="The price to trigger the alert", alert_type="above or below the price")
+async def alert(interaction: discord.Interaction, coin: str, price: float, alert_type: str):
+    if alert_type.lower() not in ['above', 'below']:
+        await interaction.response.send_message('Alert type must be either "above" or "below".', ephemeral=True)
+        return
+
+    bot.price_alerts[coin].append({'user_id': interaction.user.id, 'price': price, 'type': alert_type.lower()})
+    await interaction.response.send_message(f'Alert set for {coin.capitalize()} at ${price} {alert_type} the price.', ephemeral=True)
+
 # Auto-complete function for coin names
 @price.autocomplete('coin')
 @info.autocomplete('coin')
 @chart.autocomplete('coin')
 @convert.autocomplete('from_coin')
 @convert.autocomplete('to_coin')
+@alert.autocomplete('coin')
 async def coin_autocomplete(interaction: discord.Interaction, current: str):
     return [
         app_commands.Choice(name=coin['name'], value=coin['id'])
