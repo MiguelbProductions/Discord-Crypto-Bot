@@ -14,7 +14,7 @@ def get_price_data(coin, currency):
 def get_detailed_data(coin):
     url = f'https://api.coingecko.com/api/v3/coins/{coin}'
     response = requests.get(url)
-    if response.status_code == 200:
+    if (response.status_code == 200):
         return response.json()
     else:
         return None
@@ -80,25 +80,19 @@ def get_crypto_news():
         return None
 
 def get_wallet_info(wallet_address):
-    url = f'https://api.etherscan.io/api?module=account&action=balance&address={wallet_address}&tag=latest&apikey=USDM5S9RP1ZMYUBXIRZJ9HJCRB9KYA9PZI'
+    url = f'https://api.etherscan.io/api?module=account&action=balance&address={wallet_address}&tag=latest&apikey=ETHERSCAN_API_KEY'
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        if data['status'] == '1':
-            balance = int(data['result']) / 10**18
-            transactions_url = f'https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&startblock=0&endblock=99999999&sort=asc&apikey=USDM5S9RP1ZMYUBXIRZJ9HJCRB9KYA9PZI'
-            transactions_response = requests.get(transactions_url)
-            if transactions_response.status_code == 200:
-                transactions_data = transactions_response.json()
-                if transactions_data['status'] == '1':
-                    return {
-                        'balance': balance,
-                        'transactions': len(transactions_data['result'])
-                    }
-                else:
-                    return None
-            else:
-                return None
+        balance = int(data['result']) / 10**18  # Convert from Wei to Ether
+        transactions_url = f'https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&startblock=0&endblock=99999999&sort=asc&apikey=ETHERSCAN_API_KEY'
+        transactions_response = requests.get(transactions_url)
+        if transactions_response.status_code == 200:
+            transactions_data = transactions_response.json()
+            return {
+                'balance': balance,
+                'transactions': len(transactions_data['result'])
+            }
         else:
             return None
     else:

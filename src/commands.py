@@ -4,6 +4,19 @@ from discord.ext import commands
 from src.utils import *
 
 def setup_commands(bot: commands.Bot):
+    @bot.tree.command(name="set_language", description="Set your preferred language")
+    @app_commands.describe(language="The language code you want to set (e.g., 'en' for English, 'es' for Spanish)")
+    async def set_language(interaction: discord.Interaction, language: str):
+        user_id = interaction.user.id
+        bot.user_languages[user_id] = language
+        await interaction.response.send_message(f'Language set to {language}.', ephemeral=True)
+
+    @bot.tree.command(name="get_language", description="Get your preferred language")
+    async def get_language(interaction: discord.Interaction):
+        user_id = interaction.user.id
+        language = bot.user_languages[user_id]
+        await interaction.response.send_message(f'Your preferred language is {language}.', ephemeral=True)
+
     @bot.tree.command(name="price", description="Get the price of a cryptocurrency")
     @app_commands.describe(coin="The cryptocurrency you want to check", currency="The currency to compare (default is USD)")
     async def price(interaction: discord.Interaction, coin: str, currency: str = 'usd'):
@@ -12,7 +25,9 @@ def setup_commands(bot: commands.Bot):
         if data and coin in data:
             if currency in data[coin]:
                 price = data[coin][currency]
-                embed = discord.Embed(title=f'{coin.capitalize()} Price', color=discord.Color.blue())
+                language = bot.user_languages[interaction.user.id]
+                translated_message = get_translation(f'The price of {coin.capitalize()} is {price} {currency.upper()}', language)
+                embed = discord.Embed(title=translated_message, color=discord.Color.blue())
                 embed.add_field(name='Price', value=f'{price} {currency.upper()}', inline=False)
                 await interaction.followup.send(embed=embed)
             else:
@@ -30,7 +45,9 @@ def setup_commands(bot: commands.Bot):
             description = data['description']['en'][:200]
             market_cap = data['market_data']['market_cap']['usd']
             volume = data['market_data']['total_volume']['usd']
-            embed = discord.Embed(title=name, description=description, color=discord.Color.green())
+            language = bot.user_languages[interaction.user.id]
+            translated_message = get_translation(f'Detailed information about {coin.capitalize()}', language)
+            embed = discord.Embed(title=translated_message, description=description, color=discord.Color.green())
             embed.add_field(name='Market Cap', value=f'${market_cap:,}', inline=False)
             embed.add_field(name='Total Volume', value=f'${volume:,}', inline=False)
             await interaction.followup.send(embed=embed)
@@ -42,7 +59,9 @@ def setup_commands(bot: commands.Bot):
         await interaction.response.defer()
         data = get_top_coins()
         if data:
-            embed = discord.Embed(title='Top 10 Cryptocurrencies', color=discord.Color.gold())
+            language = bot.user_languages[interaction.user.id]
+            translated_message = get_translation('Top 10 Cryptocurrencies', language)
+            embed = discord.Embed(title=translated_message, color=discord.Color.gold())
             for coin in data:
                 embed.add_field(name=coin['name'], value=f"Price: ${coin['current_price']:,}\nMarket Cap: ${coin['market_cap']:,}", inline=False)
             await interaction.followup.send(embed=embed)
@@ -72,9 +91,10 @@ def setup_commands(bot: commands.Bot):
         await interaction.response.defer()
         data = get_market_trends()
         if data:
-            coins = data['coins']
-            embed = discord.Embed(title='Trending Cryptocurrencies', color=discord.Color.purple())
-            for coin in coins:
+            language = bot.user_languages[interaction.user.id]
+            translated_message = get_translation('Trending Cryptocurrencies', language)
+            embed = discord.Embed(title=translated_message, color=discord.Color.purple())
+            for coin in data['coins']:
                 item = coin['item']
                 embed.add_field(name=item['name'], value=f"Symbol: {item['symbol']}\nMarket Cap Rank: {item['market_cap_rank']}", inline=False)
             await interaction.followup.send(embed=embed)
@@ -87,7 +107,9 @@ def setup_commands(bot: commands.Bot):
         await interaction.response.defer()
         converted_amount = convert_crypto(amount, from_coin, to_coin)
         if converted_amount:
-            embed = discord.Embed(title='Crypto Conversion', color=discord.Color.orange())
+            language = bot.user_languages[interaction.user.id]
+            translated_message = get_translation('Crypto Conversion', language)
+            embed = discord.Embed(title=translated_message, color=discord.Color.orange())
             embed.add_field(name='From', value=f'{amount} {from_coin.upper()}', inline=False)
             embed.add_field(name='To', value=f'{converted_amount:.6f} {to_coin.upper()}', inline=False)
             await interaction.followup.send(embed=embed)
@@ -109,30 +131,16 @@ def setup_commands(bot: commands.Bot):
         await interaction.response.defer()
         news = get_crypto_news()
         if news:
-            embed = discord.Embed(title='Latest Crypto News', color=discord.Color.green())
+            language = bot.user_languages[interaction.user.id]
+            translated_message = get_translation('Latest Crypto News', language)
+            embed = discord.Embed(title=translated_message, color=discord.Color.green())
             for article in news[:10]:
-                title = article['title'][:256]
+                title = get_translation(article['title'][:256], language)
                 embed.add_field(name=title, value=article['url'], inline=False)
             await interaction.followup.send(embed=embed)
         else:
             await interaction.followup.send('Error fetching crypto news.')
 
-    """
-    @bot.tree.command(name="wallet_info", description="Get information about a wallet address")
-    @app_commands.describe(wallet_address="The wallet address to check")
-    async def wallet_info(interaction: discord.Interaction, wallet_address: str):
-        await interaction.response.defer()
-        info = get_wallet_info(wallet_address)
-        if info:
-            embed = discord.Embed(title='Wallet Information', color=discord.Color.purple())
-            embed.add_field(name='Address', value=wallet_address, inline=False)
-            embed.add_field(name='Balance', value=f"{info['balance']} ETH", inline=False)
-            embed.add_field(name='Transactions', value=info['transactions'], inline=False)
-            await interaction.followup.send(embed=embed)
-        else:
-            await interaction.followup.send('Error fetching wallet information.')
-    """
-    
     @bot.tree.command(name="add_favorite", description="Add a cryptocurrency to your favorites")
     @app_commands.describe(coin="The cryptocurrency you want to add to your favorites")
     async def add_favorite(interaction: discord.Interaction, coin: str):
@@ -144,8 +152,10 @@ def setup_commands(bot: commands.Bot):
     async def list_favorites(interaction: discord.Interaction):
         user_id = interaction.user.id
         if user_id in bot.favorites and bot.favorites[user_id]:
+            language = bot.user_languages[interaction.user.id]
+            translated_message = get_translation('Your favorite cryptocurrencies', language)
             favorites_list = "\n".join(bot.favorites[user_id])
-            await interaction.response.send_message(f'Your favorite cryptocurrencies:\n{favorites_list}', ephemeral=True)
+            await interaction.response.send_message(f'{translated_message}:\n{favorites_list}', ephemeral=True)
         else:
             await interaction.response.send_message('You have no favorite cryptocurrencies.', ephemeral=True)
 
@@ -154,7 +164,9 @@ def setup_commands(bot: commands.Bot):
         await interaction.response.defer()
         highlights = get_daily_highlights()
         if highlights:
-            embed = discord.Embed(title='Daily Highlights', color=discord.Color.gold())
+            language = bot.user_languages[interaction.user.id]
+            translated_message = get_translation('Daily Highlights', language)
+            embed = discord.Embed(title=translated_message, color=discord.Color.gold())
             gainers = "\n".join([f"{coin['name']}: +{coin['price_change_percentage_24h']:.2f}%" for coin in highlights['gainers']])
             losers = "\n".join([f"{coin['name']}: {coin['price_change_percentage_24h']:.2f}%" for coin in highlights['losers']])
             embed.add_field(name='Top Gainers', value=gainers, inline=False)

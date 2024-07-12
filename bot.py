@@ -21,6 +21,7 @@ class CryptoBot(commands.Bot):
         self.coins = []
         self.price_alerts = defaultdict(list)
         self.favorites = defaultdict(list)
+        self.user_languages = defaultdict(lambda: 'en')
 
     async def setup_hook(self):
         await self.tree.sync()
