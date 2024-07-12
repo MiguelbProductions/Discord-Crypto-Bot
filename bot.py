@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from src.commands import setup_commands
 from src.tasks import setup_tasks
 from collections import defaultdict
-from src.utils import get_price_data
+from src.utils import get_price_data, get_translation
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -20,6 +20,7 @@ class CryptoBot(commands.Bot):
         self.synced = False
         self.coins = []
         self.price_alerts = defaultdict(list)
+        self.favorites = defaultdict(list)
 
     async def setup_hook(self):
         await self.tree.sync()

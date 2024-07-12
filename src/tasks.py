@@ -2,7 +2,7 @@ from discord.ext import tasks
 from src.utils import get_price_data
 
 def setup_tasks(bot):
-    @tasks.loop(minutes=1)
+    @tasks.loop(minutes=10)
     async def update_market_data():
         for coin, alerts in bot.price_alerts.items():
             data = get_price_data(coin, 'usd')

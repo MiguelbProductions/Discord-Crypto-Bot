@@ -104,6 +104,65 @@ def setup_commands(bot: commands.Bot):
         bot.price_alerts[coin].append({'user_id': interaction.user.id, 'price': price, 'type': alert_type.lower()})
         await interaction.response.send_message(f'Alert set for {coin.capitalize()} at ${price} {alert_type} the price.', ephemeral=True)
 
+    @bot.tree.command(name="crypto_news", description="Get the latest news about cryptocurrencies")
+    async def crypto_news(interaction: discord.Interaction):
+        await interaction.response.defer()
+        news = get_crypto_news()
+        if news:
+            embed = discord.Embed(title='Latest Crypto News', color=discord.Color.green())
+            for article in news[:10]:
+                title = article['title'][:256]
+                embed.add_field(name=title, value=article['url'], inline=False)
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send('Error fetching crypto news.')
+
+    """
+    @bot.tree.command(name="wallet_info", description="Get information about a wallet address")
+    @app_commands.describe(wallet_address="The wallet address to check")
+    async def wallet_info(interaction: discord.Interaction, wallet_address: str):
+        await interaction.response.defer()
+        info = get_wallet_info(wallet_address)
+        if info:
+            embed = discord.Embed(title='Wallet Information', color=discord.Color.purple())
+            embed.add_field(name='Address', value=wallet_address, inline=False)
+            embed.add_field(name='Balance', value=f"{info['balance']} ETH", inline=False)
+            embed.add_field(name='Transactions', value=info['transactions'], inline=False)
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send('Error fetching wallet information.')
+    """
+    
+    @bot.tree.command(name="add_favorite", description="Add a cryptocurrency to your favorites")
+    @app_commands.describe(coin="The cryptocurrency you want to add to your favorites")
+    async def add_favorite(interaction: discord.Interaction, coin: str):
+        user_id = interaction.user.id
+        bot.favorites[user_id].append(coin)
+        await interaction.response.send_message(f'Added {coin.capitalize()} to your favorites.', ephemeral=True)
+
+    @bot.tree.command(name="list_favorites", description="List your favorite cryptocurrencies")
+    async def list_favorites(interaction: discord.Interaction):
+        user_id = interaction.user.id
+        if user_id in bot.favorites and bot.favorites[user_id]:
+            favorites_list = "\n".join(bot.favorites[user_id])
+            await interaction.response.send_message(f'Your favorite cryptocurrencies:\n{favorites_list}', ephemeral=True)
+        else:
+            await interaction.response.send_message('You have no favorite cryptocurrencies.', ephemeral=True)
+
+    @bot.tree.command(name="daily_highlights", description="Get the top gainers and losers of the day")
+    async def daily_highlights(interaction: discord.Interaction):
+        await interaction.response.defer()
+        highlights = get_daily_highlights()
+        if highlights:
+            embed = discord.Embed(title='Daily Highlights', color=discord.Color.gold())
+            gainers = "\n".join([f"{coin['name']}: +{coin['price_change_percentage_24h']:.2f}%" for coin in highlights['gainers']])
+            losers = "\n".join([f"{coin['name']}: {coin['price_change_percentage_24h']:.2f}%" for coin in highlights['losers']])
+            embed.add_field(name='Top Gainers', value=gainers, inline=False)
+            embed.add_field(name='Top Losers', value=losers, inline=False)
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send('Error fetching daily highlights.')
+
     # Auto-complete function for coin names
     @price.autocomplete('coin')
     @info.autocomplete('coin')
@@ -111,6 +170,7 @@ def setup_commands(bot: commands.Bot):
     @convert.autocomplete('from_coin')
     @convert.autocomplete('to_coin')
     @alert.autocomplete('coin')
+    @add_favorite.autocomplete('coin')
     async def coin_autocomplete(interaction: discord.Interaction, current: str):
         return [
             app_commands.Choice(name=coin['name'], value=coin['id'])
